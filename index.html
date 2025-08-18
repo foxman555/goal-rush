@@ -1,72 +1,350 @@
-
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>Goal Rush 改版</title>
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        text-align: center;
-        background-color: #0b3d0b;
-        color: white;
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Goal Rush — Multiplier Shootout</title>
+  <style>
+    :root{
+      --w: 420px; --h: 760px; --bg:#0b1020; --ink:#e5e7eb; --muted:#94a3b8;
+      --glass: rgba(255,255,255,.06); --line: rgba(148,163,184,.25); --accent:#22c55e; --danger:#ef4444; --gold:#f59e0b;
     }
-    #keeper, #player {
-        position: relative;
-        top: -50px; /* 角色上移，避免與球重疊 */
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#050814,#0b1020 30%,#0b1020);font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'PingFang TC','Noto Sans TC',sans-serif;display:grid;place-items:center;color:var(--ink)}
+    .frame{position:relative;width:var(--w);height:var(--h);border-radius:20px;overflow:hidden;box-shadow:0 30px 60px rgba(0,0,0,.45), inset 0 0 0 1px var(--line)}
+    /* Stadium background */
+    .stadium{position:absolute;inset:0;background:
+      radial-gradient(800px 260px at 50% -20%, rgba(255,255,255,.18), transparent 60%),
+      radial-gradient(100px 60px at 12% 0%, rgba(255,255,255,.2), transparent 60%),
+      radial-gradient(100px 60px at 88% 0%, rgba(255,255,255,.2), transparent 60%),
+      linear-gradient(180deg,#0d1530, #0b1125 40%, #0a1322 70%, #091b16 71%, #0a1c17 100%);
     }
-    .ball-option {
-        display: inline-block;
-        margin: 10px;
+    .crowd{position:absolute;left:0;right:0;top:86px;height:120px;background:repeating-linear-gradient( 90deg, rgba(19,28,56,.8) 0 8px, rgba(24,33,64,.8) 8px 16px );filter:blur(.3px)}
+    .pitch{position:absolute;left:0;right:0;bottom:0;height:46%;background:
+      repeating-linear-gradient( 90deg, #0b5d2a 0 24px, #0a5426 24px 48px );
+      border-top:1px solid rgba(255,255,255,.08)}
+    /* Goal */
+    .goal{position:absolute;right:22px;bottom:140px;width:170px;height:120px;border:6px solid #fff;border-bottom-width:10px;border-left-width:8px;border-radius:6px}
+    .goal:before{content:"";position:absolute;inset:0;border-radius:2px;background:
+      linear-gradient(90deg, rgba(255,255,255,.35) 1px, transparent 1px) 0 0/18px 18px,
+      linear-gradient(0deg, rgba(255,255,255,.35) 1px, transparent 1px) 0 0/18px 18px;
+      filter:drop-shadow(0 0 2px rgba(255,255,255,.2));
     }
-    .ball-option img {
-        width: 100px;
-        height: 100px;
-        cursor: pointer;
+    .tunnel{position:absolute;right:18px;bottom:130px;width:16px;height:130px;background:linear-gradient(180deg, #d1d5db, #9ca3af);border-top-left-radius:8px;border-bottom-left-radius:8px;filter:drop-shadow(0 2px 0 rgba(0,0,0,.15))}
+
+    /* HUD */
+    .hud{position:absolute;inset:0;pointer-events:none}
+    .bar{position:absolute;left:12px;right:12px;top:10px;display:flex;gap:10px;align-items:center;background:var(--glass);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;padding:8px}
+    .logo{font-weight:900;letter-spacing:.3px;opacity:.9}
+    .chip{pointer-events:auto;display:flex;align-items:center;gap:6px;background:rgba(2,6,23,.7);border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:12px}
+    .chip b{font-size:13px}
+    .chip .btn{width:22px;height:22px;border-radius:999px;border:1px solid var(--line);display:grid;place-items:center;cursor:pointer}
+
+    /* Goalie reel (top strip) */
+    .goalie-strip{position:absolute;left:12px;right:12px;top:60px;height:78px;background:var(--glass);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;display:flex;align-items:center;padding:10px;gap:10px;overflow:hidden}
+    .goalie-card{flex:0 0 64px;height:58px;border-radius:12px;border:1px solid var(--line);background:linear-gradient(180deg,#1b2447,#121a36);display:grid;place-items:center;position:relative}
+    .goalie-card .avatar{position:absolute;inset:auto auto 6px 6px;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fca5a5, #f87171);box-shadow:0 0 0 2px rgba(255,255,255,.15)}
+    .goalie-card .mul{font-weight:900;color:#a5f3fc;text-shadow:0 2px 6px rgba(59,130,246,.35)}
+    .goalie-card.active{outline:2px solid var(--gold);box-shadow:0 0 0 3px rgba(245,158,11,.25) inset}
+
+    /* Panels */
+    .panel{position:absolute;left:12px;right:12px;bottom:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(6px);border-radius:16px;padding:14px}
+    .panel h3{margin:0 0 8px;font-size:14px;color:var(--muted);letter-spacing:.5px}
+
+    .balls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .ball{position:relative;aspect-ratio:1/1;border-radius:50%;cursor:pointer;transition:.2s transform;user-select:none;background:
+      radial-gradient(circle at 35% 35%, #fff 0 38%, #e5e7eb 43%, #d1d5db 55%, #94a3b8 100%);
+      box-shadow: inset 0 12px 20px rgba(0,0,0,.12), inset 0 -10px 18px rgba(0,0,0,.18), 0 8px 20px rgba(0,0,0,.35);
+      border:2px solid rgba(255,255,255,.6)
     }
-    .scoreboard {
-        margin-top: 20px;
-        font-size: 1.2em;
-    }
-</style>
+    .ball:active{transform:translateY(1px) scale(.98)}
+    /* simple pentagon patches */
+    .ball:before,.ball:after{content:"";position:absolute;inset:0;background:
+      radial-gradient(circle at 50% 50%, transparent 0 34%, #374151 37% 42%, transparent 45%),
+      radial-gradient(circle at 22% 26%, transparent 0 23%, #374151 26% 31%, transparent 34%),
+      radial-gradient(circle at 76% 24%, transparent 0 23%, #374151 26% 31%, transparent 34%),
+      radial-gradient(circle at 24% 77%, transparent 0 23%, #374151 26% 31%, transparent 34%),
+      radial-gradient(circle at 74% 78%, transparent 0 23%, #374151 26% 31%, transparent 34%);
+      opacity:.55;mix-blend-mode:multiply;border-radius:50%}
+    .ball .m{position:absolute;inset:auto 0 10px 0;text-align:center;font-weight:900;color:#111827;background:rgba(255,255,255,.85);margin:0 18px;border-radius:999px;padding:2px 0;box-shadow:0 4px 10px rgba(0,0,0,.25)}
+    .ball.sel{outline:3px solid var(--accent);box-shadow:0 0 0 6px rgba(34,197,94,.18), 0 12px 20px rgba(0,0,0,.35)}
+
+    /* CTA */
+    .cta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+    .btn{pointer-events:auto;cursor:pointer;background:linear-gradient(180deg,#22c55e,#16a34a);border:none;color:#052e1b;font-weight:900;padding:10px 14px;border-radius:12px;box-shadow:0 10px 20px rgba(34,197,94,.2)}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+    /* Shot scene */
+    .scene{position:absolute;left:0;right:0;bottom:140px;height:42%;pointer-events:none}
+    .player{position:absolute;left:40px;bottom:20px;width:64px;height:90px;border-radius:16px;background:linear-gradient(180deg,#b91c1c,#7f1d1d);box-shadow:0 8px 16px rgba(0,0,0,.35)}
+    .player:before{content:"";position:absolute;left:16px;top:-20px;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fcd5b5, #eab08e)}
+
+    .keeper{position:absolute;right:60px;bottom:42px;width:66px;height:92px;border-radius:16px;background:linear-gradient(180deg,#0ea5e9,#0369a1);box-shadow:0 8px 16px rgba(0,0,0,.35);transform-origin:50% 80%}
+    .keeper:before{content:"";position:absolute;left:18px;top:-18px;width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fcd5b5, #eab08e)}
+
+    .fball{position:absolute;left:86px;bottom:40px;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #fff 0 38%, #e5e7eb 45%, #94a3b8 100%);box-shadow:0 4px 8px rgba(0,0,0,.35)}
+    .fball:before{content:"";position:absolute;inset:0;border-radius:50%;background:
+      radial-gradient(circle at 50% 50%, transparent 0 34%, #374151 37% 42%, transparent 45%),
+      radial-gradient(circle at 22% 26%, transparent 0 23%, #374151 26% 31%, transparent 34%),
+      radial-gradient(circle at 76% 24%, transparent 0 23%, #374151 26% 31%, transparent 34%),
+      radial-gradient(circle at 24% 77%, transparent 0 23%, #374151 26% 31%, transparent 34%),
+      radial-gradient(circle at 74% 78%, transparent 0 23%, #374151 26% 31%, transparent 34%);
+      opacity:.55;mix-blend-mode:multiply}
+
+    /* Toast/result */
+    .toast{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(2,6,23,.85);border:1px solid var(--line);backdrop-filter:blur(6px);padding:18px 16px;border-radius:14px;display:none;min-width:220px;text-align:center}
+    .toast.show{display:block}
+    .toast h2{margin:0 0 6px}
+
+    /* helper */
+    .hidden{display:none}
+  </style>
 </head>
 <body>
-    <h1>⚽ Goal Rush ⚽</h1>
-    <div id="keeper">🧤 守門員倍率：<span id="keeper-multiplier">x2</span></div>
-    <div id="player">👟 踢球員</div>
+  <div class="frame" id="frame">
+    <div class="stadium"></div>
+    <div class="crowd"></div>
+    <div class="pitch"></div>
+    <div class="tunnel"></div>
+    <div class="goal"></div>
 
-    <div class="scoreboard">
-        <div>當前球倍率：<span id="ball-multiplier">x1</span></div>
-        <div>結果：<span id="result">尚未開始</span></div>
+    <!-- HUD Top -->
+    <div class="hud">
+      <div class="bar" id="topBar">
+        <div class="logo">GOAL RUSH</div>
+        <div class="chip" style="margin-left:auto;">
+          餘額 <b id="balance">$1,000</b>
+        </div>
+        <div class="chip">
+          下注
+          <div class="btn" id="minus">−</div>
+          <b id="bet">$10</b>
+          <div class="btn" id="plus">＋</div>
+        </div>
+      </div>
+
+      <!-- Goalie strip (reel-like) -->
+      <div class="goalie-strip" id="goalieStrip">
+        <!-- dynamically filled -->
+      </div>
     </div>
 
-    <div id="ball-options">
-        <div class="ball-option"><img src="soccer.png" onclick="kickBall()"></div>
+    <!-- Shot scene -->
+    <div class="scene" id="scene">
+      <div class="player" aria-hidden="true"></div>
+      <div class="keeper" id="keeper" aria-hidden="true"></div>
+      <div class="fball" id="flyBall" aria-hidden="true"></div>
     </div>
 
-<script>
-    let keeperMultipliers = [2, 4, 6, 8, 12, 16, 20, 32, 50, 64, 100];
-    let keeperIndex = 0;
+    <!-- Bottom panel: choose ball & controls -->
+    <div class="panel" id="panel">
+      <h3 id="panelTitle">步驟 1：選一顆球（球倍率）</h3>
+      <div class="balls" id="balls"></div>
+      <div class="cta">
+        <small id="hint" style="opacity:.8">選球後會抽出守門員倍率，再自動射門</small>
+        <button class="btn" id="playBtn" disabled>開始</button>
+      </div>
+    </div>
 
-    function kickBall(){
-        // 更新球倍率 (1~100隨機)
-        let ballMulti = Math.floor(Math.random() * 100) + 1;
-        document.getElementById("ball-multiplier").innerText = "x" + ballMulti;
+    <div class="toast" id="toast">
+      <h2 id="resultTitle">GOAL!</h2>
+      <div id="resultMeta" style="font-size:14px;color:var(--muted)"></div>
+    </div>
+  </div>
 
-        // 計算結果 (示範：50%進球率)
-        let goal = Math.random() < 0.5;
-        let keeperMulti = keeperMultipliers[keeperIndex];
-        document.getElementById("keeper-multiplier").innerText = "x" + keeperMulti;
+  <script>
+    ;(() => {
+      const $ = (sel, el=document) => el.querySelector(sel)
+      const $$ = (sel, el=document) => [...el.querySelectorAll(sel)]
+      const fmt = n => `$${n.toLocaleString()}`
 
-        if(goal){
-            document.getElementById("result").innerText = "GOAL! 贏得倍率 " + (ballMulti * keeperMulti);
-        } else {
-            document.getElementById("result").innerText = "沒進球！倍率 0";
+      const state = {
+        balance: 1000,
+        bet: 10,
+        round: 0,
+        ballPick: null, // number
+        goaliePick: null, // number
+        busy: false,
+        rtpHint: 0.92,
+      }
+
+      const BALL_POOL = [2,4,6,10,20,32,50,64,100]
+      const GOALIE_POOL = [2,4,6,8,12,16,32,64]
+
+      const balanceEl = $('#balance')
+      const betEl = $('#bet')
+      const ballsEl = $('#balls')
+      const playBtn = $('#playBtn')
+      const panelTitle = $('#panelTitle')
+      const hint = $('#hint')
+      const strip = $('#goalieStrip')
+      const toast = $('#toast')
+      const resultTitle = $('#resultTitle')
+      const resultMeta = $('#resultMeta')
+      const keeper = $('#keeper')
+      const flyBall = $('#flyBall')
+
+      // init HUD
+      const syncHUD = () => {
+        balanceEl.textContent = fmt(state.balance)
+        betEl.textContent = fmt(state.bet)
+      }
+
+      $('#minus').onclick = () => { if(state.busy) return; state.bet = Math.max(1, state.bet - 1); syncHUD() }
+      $('#plus').onclick  = () => { if(state.busy) return; state.bet = Math.min(1000, state.bet + 1); syncHUD() }
+
+      function randPickFrom(pool, n){
+        const arr = [...pool]
+        const res = []
+        while(res.length < n && arr.length){
+          const i = Math.floor(Math.random()*arr.length)
+          res.push(arr.splice(i,1)[0])
         }
+        return res
+      }
 
-        // 守門員倍率依序遞增
-        keeperIndex = (keeperIndex + 1) % keeperMultipliers.length;
-    }
-</script>
+      function newRound(){
+        state.round++
+        state.ballPick = null
+        state.goaliePick = null
+        state.busy = false
+        toast.classList.remove('show')
+
+        // render balls
+        ballsEl.innerHTML = ''
+        let options = randPickFrom(BALL_POOL, 3)
+        options.forEach(v => {
+          const b = document.createElement('button')
+          b.className = 'ball'
+          b.innerHTML = `<div class="m">x${v}</div>`
+          b.onclick = () => selectBall(b, v)
+          ballsEl.appendChild(b)
+        })
+
+        // render goalie strip
+        strip.innerHTML = ''
+        GOALIE_POOL.forEach(v => {
+          const card = document.createElement('div')
+          card.className = 'goalie-card'
+          card.innerHTML = `<span class="mul">x${v}</span><span class="avatar"></span>`
+          strip.appendChild(card)
+        })
+
+        panelTitle.textContent = '步驟 1：選一顆球（球倍率）'
+        hint.textContent = '選球後會抽出守門員倍率，再自動射門'
+        playBtn.disabled = true
+        flyBall.style.left = '86px'
+        flyBall.style.bottom = '40px'
+        keeper.style.transform = 'rotate(0deg) translate(0,0)'
+      }
+
+      function selectBall(el, val){
+        if(state.busy) return
+        state.ballPick = val
+        $$('.ball', ballsEl).forEach(x => x.classList.remove('sel'))
+        el.classList.add('sel')
+        panelTitle.textContent = `已選球倍率 x${val}，抽守門員中…`
+        hint.textContent = '抽到的守門員倍率將與球倍率相乘'
+        playBtn.disabled = false
+      }
+
+      playBtn.onclick = async () => {
+        if(state.busy || !state.ballPick) return
+        state.busy = true
+        playBtn.disabled = true
+        // 扣款
+        if(state.balance < state.bet){
+          panelTitle.textContent = '餘額不足，請減少下注或重整遊戲'
+          state.busy = false
+          return
+        }
+        state.balance -= state.bet
+        syncHUD()
+
+        // spin goalie strip
+        const cards = $$('.goalie-card', strip)
+        let ticks = 20 + Math.floor(Math.random()*10)
+        let idx = 0
+        let spinTimer
+        await new Promise(res => {
+          spinTimer = setInterval(() => {
+            cards.forEach(c => c.classList.remove('active'))
+            const cur = cards[idx % cards.length]
+            cur.classList.add('active')
+            idx++
+            if(--ticks <= 0){
+              clearInterval(spinTimer)
+              const pickCard = cards[(idx-1) % cards.length]
+              state.goaliePick = parseInt($('.mul', pickCard).textContent.replace('x',''),10)
+              res()
+            }
+          }, 60)
+        })
+
+        panelTitle.textContent = `守門員倍率 x${state.goaliePick}，射門！`
+
+        // compute success probability based on product
+        const product = state.ballPick * state.goaliePick
+        let p = 0.65 * Math.pow(18/Math.max(6, Math.sqrt(product)), 0.35)
+        p = Math.max(0.08, Math.min(0.9, p))
+
+        const success = Math.random() < p
+        await animateKick(success)
+
+        const payout = success ? Math.round(state.bet * state.ballPick * state.goaliePick) : 0
+        if(payout>0) state.balance += payout
+        syncHUD()
+
+        resultTitle.textContent = success ? '🎉 GOAL!' : '🧤 被撲救'
+        resultTitle.style.color = success ? 'var(--accent)' : 'var(--danger)'
+        resultMeta.innerHTML = `球倍率 <b>x${state.ballPick}</b> × 守門員倍率 <b>x${state.goaliePick}</b> → <b>${success? '贏得 ' + fmt(payout) : '未中獎'}</b>`
+        toast.classList.add('show')
+        panelTitle.textContent = '再來一局？重新選球吧'
+        playBtn.disabled = true
+        state.busy = false
+      }
+
+      async function animateKick(success){
+        // ball to goal
+        flyBall.animate([
+          { transform: 'translate(0,0) scale(1)', offset: 0 },
+          { transform: 'translate(140px,-40px) scale(0.9)', offset: .4 },
+          { transform: 'translate(250px,-60px) scale(0.85)', offset: .7 },
+          { transform: 'translate(300px,-90px) scale(0.8)', offset: 1 },
+        ], { duration: 550, easing: 'cubic-bezier(.2,.8,.2,1)' })
+
+        // keeper dive direction
+        const dir = Math.random() > .5 ? 1 : -1
+        keeper.animate([
+          { transform:'rotate(0deg) translate(0,0)' },
+          { transform:`rotate(${dir*10}deg) translate(${dir*-10}px,-6px)` },
+          { transform:`rotate(${dir*22}deg) translate(${dir*-40}px,-16px)` },
+        ], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' })
+
+        await new Promise(r => setTimeout(r, 560))
+
+        // subtle net/goal flash
+        $('.goal').animate([{ filter:'brightness(1)' }, { filter:'brightness(1.2)' }, { filter:'brightness(1)' }], { duration: 250 })
+
+        // shake if saved
+        if(!success){
+          $('#frame').animate([
+            { transform:'translateX(0)' },
+            { transform:'translateX(-4px)' },
+            { transform:'translateX(4px)' },
+            { transform:'translateX(0)' },
+          ], { duration: 220 })
+        }
+      }
+
+      // boot
+      syncHUD()
+      newRound()
+
+      // allow clicking background to close toast and start new round
+      toast.addEventListener('click', () => { toast.classList.remove('show'); newRound() })
+    })()
+  </script>
 </body>
 </html>
